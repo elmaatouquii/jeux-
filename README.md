@@ -1,4 +1,4 @@
-# 🐍 Jeu Lf3a — Snake Game with React
+# 🐍 Jeu  — Snake Game with React
 
 A simple and fun Snake (Lf3a) game built with React.  
 Control the snake with your keyboard, eat the food, grow longer, and try not to hit the wall or yourself!
