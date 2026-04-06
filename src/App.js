@@ -1,18 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const size = 20;
+const SIZE = 20;
 
 export default function App() {
   const [snake, setSnake] = useState([[10, 10]]);
   const [food, setFood] = useState([5, 5]);
   const [dir, setDir] = useState([0, 1]);
   const [over, setOver] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [score, setScore] = useState(0);
+  const [best, setBest] = useState(
+    Number(localStorage.getItem("bestScore") || 0)
+  );
 
   const dirRef = useRef(dir);
   dirRef.current = dir;
 
-  // Keyboard control (no reverse)
+  // 🎮 Keyboard
   useEffect(() => {
     const key = (e) => {
       const [dx, dy] = dirRef.current;
@@ -21,31 +25,46 @@ export default function App() {
       if (e.key === "ArrowDown" && dx !== -1) setDir([1, 0]);
       if (e.key === "ArrowLeft" && dy !== 1) setDir([0, -1]);
       if (e.key === "ArrowRight" && dy !== -1) setDir([0, 1]);
+      if (e.key === " ") setPaused((p) => !p);
     };
 
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
 
-  // Game loop (speed increases)
+  // 🍎 Spawn food safely
+  const spawnFood = (currentSnake) => {
+    let f;
+    do {
+      f = [
+        Math.floor(Math.random() * SIZE),
+        Math.floor(Math.random() * SIZE),
+      ];
+    } while (currentSnake.some((s) => s[0] === f[0] && s[1] === f[1]));
+    setFood(f);
+  };
+
+  // ⏱ Game loop with ref (no re-render bug)
+  const loopRef = useRef();
+
   useEffect(() => {
-    if (over) return;
+    if (over || paused) return;
 
-    const speed = Math.max(70, 180 - score * 5);
+    const speed = Math.max(60, 160 - score * 4);
 
-    const interval = setInterval(() => {
+    loopRef.current = setInterval(() => {
       setSnake((prev) => {
         const head = [
           prev[0][0] + dirRef.current[0],
           prev[0][1] + dirRef.current[1],
         ];
 
-        // Collision
+        // ❌ Collision
         if (
           head[0] < 0 ||
           head[1] < 0 ||
-          head[0] >= size ||
-          head[1] >= size ||
+          head[0] >= SIZE ||
+          head[1] >= SIZE ||
           prev.some((s) => s[0] === head[0] && s[1] === head[1])
         ) {
           setOver(true);
@@ -54,22 +73,17 @@ export default function App() {
 
         const newSnake = [head, ...prev];
 
-        // Eat food
+        // 🍎 Eat
         if (head[0] === food[0] && head[1] === food[1]) {
-          setScore((s) => s + 1);
-
-          // New food not on snake
-          let newFood;
-          do {
-            newFood = [
-              Math.floor(Math.random() * size),
-              Math.floor(Math.random() * size),
-            ];
-          } while (
-            newSnake.some((s) => s[0] === newFood[0] && s[1] === newFood[1])
-          );
-
-          setFood(newFood);
+          setScore((s) => {
+            const newScore = s + 1;
+            if (newScore > best) {
+              setBest(newScore);
+              localStorage.setItem("bestScore", newScore);
+            }
+            return newScore;
+          });
+          spawnFood(newSnake);
         } else {
           newSnake.pop();
         }
@@ -78,26 +92,28 @@ export default function App() {
       });
     }, speed);
 
-    return () => clearInterval(interval);
-  }, [food, over, score]);
+    return () => clearInterval(loopRef.current);
+  }, [food, score, over, paused, best]);
 
   const restart = () => {
     setSnake([[10, 10]]);
     setFood([5, 5]);
     setDir([0, 1]);
     setOver(false);
+    setPaused(false);
     setScore(0);
   };
 
   return (
     <div className="container">
-      <h1>🐍 Jeu Lf3a</h1>
-      <h2>Score: {score}</h2>
+      <h1>🐍 Jeu Lf3a Pro</h1>
+      <h2>Score: {score} | Best: {best}</h2>
       {over && <h2 style={{ color: "red" }}>Game Over</h2>}
+      {paused && <h2 style={{ color: "orange" }}>Paused</h2>}
 
       <div className="board">
-        {[...Array(size)].map((_, r) =>
-          [...Array(size)].map((_, c) => {
+        {[...Array(SIZE)].map((_, r) =>
+          [...Array(SIZE)].map((_, c) => {
             const isSnake = snake.some((x) => x[0] === r && x[1] === c);
             const isFood = food[0] === r && food[1] === c;
 
@@ -114,6 +130,7 @@ export default function App() {
       </div>
 
       <button onClick={restart}>Restart</button>
+      <p>🎮 Flèches pour jouer — Espace pour Pause</p>
     </div>
   );
 }
